@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Security Auditor Console</title>
+<style>
+  :root {
+    --bg: #070a0c;
+    --bg2: #0c1114;
+    --panel: #10161a;
+    --panel2: #141b20;
+    --green: #39ff88;
+    --green-dim: #1f6b40;
+    --red: #ff4d4d;
+    --amber: #ffb84d;
+    --blue: #4da6ff;
+    --purple: #a06bff;
+    --gray: #7a8a90;
+    --text: #d6ffe8;
+    --border: #1d2a2e;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(circle at 20% 0%, #0d1a14 0%, var(--bg) 45%),
+                linear-gradient(var(--bg), var(--bg));
+    color: var(--text);
+    font-family: "Consolas", "SF Mono", monospace;
+    margin: 0;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(57,255,136,0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(57,255,136,0.045) 1px, transparent 1px);
+    background-size: 42px 42px;
+    animation: gridshift 18s linear infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+  @keyframes gridshift { 0% { background-position: 0 0; } 100% { background-position: 420px 420px; } }
+
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px;
+    background: rgba(10,14,15,0.85);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-icon {
+    width: 30px; height: 30px; border-radius: 7px;
+    background: linear-gradient(135deg, var(--green), var(--blue));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: bold; color: #04150a; font-size: 15px;
+    box-shadow: 0 0 16px rgba(57,255,136,0.5);
+  }
+  .brand-text { font-size: 15px; font-weight: bold; color: var(--green); letter-spacing: 0.5px; }
+  .brand-sub { font-size: 10px; color: var(--gray); margin-left: 8px; }
+  .nav-right { display: flex; align-items: center; gap: 18px; font-size: 12.5px; }
+  .nav-link { color: var(--gray); cursor: pointer; transition: color 0.15s; }
+  .nav-link:hover, .nav-link.active { color: var(--green); }
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    background: #0d1a10; border: 1px solid var(--green-dim); color: var(--green);
+    padding: 4px 10px; border-radius: 20px; font-size: 11px;
+  }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .icon-btn {
+    background: none; border: 1px solid var(--border); color: var(--gray);
+    width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+  }
+  .icon-btn:hover, .icon-btn.active { color: var(--green); border-color: var(--green-dim); background: #0d1a10; }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 32px 28px 80px; position: relative; z-index: 1; }
+
+  .hero { margin-bottom: 26px; }
+  .hero h1 { color: var(--green); font-size: 24px; margin: 0 0 6px; text-shadow: 0 0 10px rgba(57,255,136,0.4); }
+  .hero p { color: var(--gray); font-size: 13px; margin: 0; }
+
+  .scope-note {
+    border: 1px solid #2a4a2e; background: #0d1a10cc; color: var(--green);
+    padding: 10px 16px; border-radius: 8px; font-size: 12px; margin-bottom: 24px;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; }
+  @media (max-width: 880px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: linear-gradient(145deg, var(--panel), var(--panel2));
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+    margin-bottom: 20px;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  }
+  .panel:hover { box-shadow: 0 16px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(57,255,136,0.08); }
+  .panel-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--gray); margin-bottom: 14px; }
+
+  label { display: block; font-size: 12px; color: var(--gray); margin: 10px 0 4px; }
+  input[type=text], input[type=password], select {
+    width: 100%; background: #060a0b; border: 1px solid #243034; color: var(--green);
+    padding: 10px 12px; border-radius: 6px; font-family: inherit; font-size: 13px;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(57,255,136,0.12); }
+  .auth-row { display: none; align-items: center; gap: 8px; margin-top: 10px; font-size: 12.5px; color: var(--amber); }
+  .auth-row.visible { display: flex; }
+
+  button.primary {
+    margin-top: 18px; background: linear-gradient(135deg, var(--green), #19e06a);
+    color: #04150a; border: none; padding: 13px 24px; border-radius: 7px; font-weight: bold;
+    cursor: pointer; font-family: inherit; letter-spacing: 0.5px; font-size: 13px;
+    box-shadow: 0 6px 20px rgba(57,255,136,0.25);
+    transition: transform 0.15s;
+  }
+  button.primary:hover { transform: translateY(-1px); }
+  button.primary:disabled { background: #2a3a30; color: #5a6a60; cursor: not-allowed; box-shadow: none; }
+
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; font-size: 12.5px; color: var(--text); }
+  .switch { position: relative; width: 38px; height: 20px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; inset: 0; background: #243034; border-radius: 20px; cursor: pointer; transition: 0.2s; }
+  .slider::before { content: ""; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px; background: var(--gray); border-radius: 50%; transition: 0.2s; }
+  .switch input:checked + .slider { background: var(--green-dim); }
+  .switch input:checked + .slider::before { transform: translateX(18px); background: var(--green); }
+
+  #log {
+    background: #05080a; border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px; height: 150px; overflow-y: auto; font-size: 12px; color: #7fe8a8;
+    white-space: pre-wrap;
+  }
+
+  .stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-card {
+    background: linear-gradient(145deg, var(--panel), var(--panel2));
+    border: 1px solid var(--border); border-radius: 10px; padding: 16px;
+    text-align: center; transition: transform 0.2s;
+  }
+  .stat-card:hover { transform: translateY(-3px); }
+  .stat-num { font-size: 26px; font-weight: bold; }
+  .stat-label { font-size: 10px; color: var(--gray); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+  .stat-high .stat-num { color: var(--red); text-shadow: 0 0 10px rgba(255,77,77,0.5); }
+  .stat-medium .stat-num { color: var(--amber); }
+  .stat-low .stat-num { color: var(--blue); }
+  .stat-info .stat-num { color: var(--gray); }
+  .stat-ok .stat-num { color: var(--green); }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { text-align: left; padding: 11px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: top; }
+  th { color: var(--gray); font-weight: normal; text-transform: uppercase; font-size: 11px; }
+  tr:hover td { background: #0d1316; }
+  .sev { padding: 2px 9px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+  .sev-high { background: #3a0f0f; color: var(--red); border: 1px solid var(--red); }
+  .sev-medium { background: #3a2a0f; color: var(--amber); border: 1px solid var(--amber); }
+  .sev-low { background: #0f2a3a; color: var(--blue); border: 1px solid var(--blue); }
+  .sev-info { background: #1a1a1a; color: var(--gray); border: 1px solid var(--gray); }
+  .sev-ok { background: #0f3a1f; color: var(--green); border: 1px solid var(--green); }
+  .fix { color: var(--green); font-size: 12.5px; }
+  .summary-box { white-space: pre-wrap; font-size: 12.5px; color: var(--text); line-height: 1.6; }
+  .error-box { color: var(--red); background: #1a0a0a; border: 1px solid var(--red); padding: 12px; border-radius: 8px; margin-top: 12px; }
+  .warn-box { color: var(--amber); background: #1a1405; border: 1px solid var(--amber); padding: 10px 14px; border-radius: 8px; margin-top: 12px; font-size: 12px; }
+
+  #toasts { position: fixed; top: 80px; right: 24px; z-index: 100; display: flex; flex-direction: column; gap: 10px; }
+  .toast {
+    min-width: 260px; max-width: 340px; padding: 14px 16px; border-radius: 8px;
+    background: var(--panel2); border-left: 4px solid var(--green); font-size: 12.5px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    animation: toastin 0.25s ease, toastout 0.4s ease 4.6s forwards;
+  }
+  .toast.high { border-left-color: var(--red); }
+  .toast.medium { border-left-color: var(--amber); }
+  @keyframes toastin { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes toastout { to { transform: translateX(40px); opacity: 0; } }
+
+  .checklist-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 4px; border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .checklist-item:last-child { border-bottom: none; }
+  .checklist-badge { font-size: 11px; padding: 3px 10px; border-radius: 12px; font-weight: bold; }
+  .badge-clean { background: #0f3a1f; color: var(--green); border: 1px solid var(--green); }
+  .badge-issues { background: #3a0f0f; color: var(--red); border: 1px solid var(--red); }
+  .badge-notchecked { background: #1a1a1a; color: var(--gray); border: 1px solid var(--gray); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">
+    <div class="brand-icon">S</div>
+    <div class="brand-text">SECURITY_AUDITOR</div>
+    <div class="brand-sub">local console</div>
+  </div>
+  <div class="nav-right">
+    <span class="nav-link" id="navDashboard" onclick="showTab('dashboard')">Dashboard</span>
+    <span class="nav-link" id="navLab" onclick="showTab('lab')">Lab Mode</span>
+    <span class="nav-link" onclick="document.getElementById('settingsPanel').scrollIntoView({behavior:'smooth'})">Settings</span>
+    <div class="status-pill"><span class="status-dot"></span> READY</div>
+    <button class="icon-btn" id="voiceToggleBtn" title="Toggle voice alerts" onclick="toggleVoice()">&#128264;</button>
+  </div>
+</nav>
+
+<div id="toasts"></div>
+
+<main>
+<div id="dashboardTab">
+  <div class="hero">
+    <h1>&gt; Security Audit Console</h1>
+    <p>AI-assisted scan of your own app &mdash; headers, injection symptoms, auth hardening, cookies, CORS</p>
+  </div>
+
+  <div class="scope-note">
+    SCOPE: this tool tests systems you own or are explicitly authorized to test.
+    No real credentials are guessed &mdash; login checks use one fixed dummy account
+    only to confirm rate limiting exists.
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">Target Configuration</div>
+      <label>Frontend URL (Next.js)</label>
+      <input type="text" id="frontend_url" value="{{ default_frontend }}">
+
+      <label>Backend API URL (.NET)</label>
+      <input type="text" id="api_url" value="{{ default_api }}">
+
+      <div class="auth-row" id="authRow">
+        <input type="checkbox" id="authorized">
+        <label for="authorized" style="margin:0;color:var(--amber);">
+          I own or am explicitly authorized to test this target
+        </label>
+      </div>
+
+      <label style="margin-top:16px;">.NET source folder (optional, enables code + CVE scan)</label>
+      <input type="text" id="dotnet_source_path" placeholder="D:\CodexPawar369 Project\RaceTraking\backend">
+
+      <label>Next.js source folder (optional, enables code + CVE scan)</label>
+      <input type="text" id="frontend_source_path" placeholder="D:\...\frontend">
+
+      <button class="primary" id="runBtn" onclick="runScan()">&#9654; RUN SCAN</button>
+    </div>
+
+    <div class="panel" id="settingsPanel">
+      <div class="panel-title">AI Summary Provider (optional)</div>
+      <label>Provider</label>
+      <select id="llm_provider">
+        <option value="">None (rule-based summary only)</option>
+        <option value="anthropic">Anthropic (Claude)</option>
+        <option value="openai">OpenAI (GPT)</option>
+        <option value="gemini">Google (Gemini)</option>
+      </select>
+
+      <label>API Key</label>
+      <input type="password" id="llm_api_key" placeholder="sk-... (kept in this browser only)">
+
+      <div class="toggle-row">
+        <span>Voice alerts on completion</span>
+        <label class="switch"><input type="checkbox" id="voiceEnabled" checked><span class="slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span>Toast notifications</span>
+        <label class="switch"><input type="checkbox" id="toastEnabled" checked><span class="slider"></span></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Console</div>
+    <div id="log">Waiting to start...</div>
+  </div>
+
+  <div id="statsRow" class="stats-row" style="display:none;">
+    <div class="stat-card stat-high"><div class="stat-num" id="statHigh">0</div><div class="stat-label">High</div></div>
+    <div class="stat-card stat-medium"><div class="stat-num" id="statMedium">0</div><div class="stat-label">Medium</div></div>
+    <div class="stat-card stat-low"><div class="stat-num" id="statLow">0</div><div class="stat-label">Low</div></div>
+    <div class="stat-card stat-info"><div class="stat-num" id="statInfo">0</div><div class="stat-label">Info</div></div>
+    <div class="stat-card stat-ok"><div class="stat-num" id="statOk">0</div><div class="stat-label">Passed</div></div>
+  </div>
+
+  <div class="panel" id="checklistPanel" style="display:none;">
+    <div class="panel-title">7-Point Security Checklist</div>
+    <div id="checklistBody"></div>
+  </div>
+
+  <div class="panel" id="resultsPanel" style="display:none;">
+    <div class="panel-title">Summary</div>
+    <div class="summary-box" id="summaryBox"></div>
+    <div id="aiErrorBox"></div>
+
+    <div class="panel-title" style="margin-top:24px;">Findings</div>
+    <table>
+      <tr><th>Severity</th><th>Finding</th><th>Suggested fix</th></tr>
+      <tbody id="resultsBody"></tbody>
+    </table>
+  </div>
+</div><!-- /dashboardTab -->
+
+<div id="labTab" style="display:none;">
+  <div class="hero">
+    <h1>&gt; Lab Mode // active exploit practice</h1>
+    <p>Runs real exploit attempts (SQLi bypass, IDOR, JWT inspection) against a training app you run locally.</p>
+  </div>
+
+  <div class="scope-note" style="border-color:#4a2a2a;background:#1a0d0dcc;color:var(--amber);">
+    Lab Mode only works against recognized training apps (OWASP Juice Shop, DVWA, WebGoat, Mutillidae, bWAPP)
+    running on localhost. It will refuse any other target. These apps are built to be broken &mdash; that's
+    the entire point &mdash; so active exploitation here is safe and legal.
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Lab Target</div>
+    <label>Training app</label>
+    <select id="app_type">
+      <option value="juice-shop">OWASP Juice Shop</option>
+      <option value="dvwa">DVWA</option>
+      <option value="webgoat">WebGoat</option>
+      <option value="mutillidae">Mutillidae</option>
+      <option value="bwapp">bWAPP</option>
+    </select>
+
+    <label>Target URL (localhost only)</label>
+    <input type="text" id="target_url" value="http://localhost:3000">
+
+    <div class="toggle-row">
+      <span style="color:var(--amber);">I confirm this is a training app I'm running locally for practice</span>
+      <label class="switch"><input type="checkbox" id="confirmed_training_target"><span class="slider"></span></label>
+    </div>
+
+    <button class="primary" id="labRunBtn" onclick="runLabScan()">&#9654; RUN LAB EXPLOITS</button>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Lab Console</div>
+    <div id="labLog">Waiting to start...</div>
+  </div>
+
+  <div class="panel" id="labResultsPanel" style="display:none;">
+    <div class="panel-title">Exploit Results</div>
+    <table>
+      <tr><th>Severity</th><th>Finding</th><th>Suggested fix</th></tr>
+      <tbody id="labResultsBody"></tbody>
+    </table>
+  </div>
+</div><!-- /labTab -->
+</main>
+
+<script>
+const LOCAL_HOSTS = ["localhost", "127.0.0.1", "::1", "0.0.0.0"];
+let voiceOn = true;
+
+function showTab(tab) {
+  document.getElementById('dashboardTab').style.display = tab === 'dashboard' ? 'block' : 'none';
+  document.getElementById('labTab').style.display = tab === 'lab' ? 'block' : 'none';
+  document.getElementById('navDashboard').classList.toggle('active', tab === 'dashboard');
+  document.getElementById('navLab').classList.toggle('active', tab === 'lab');
+}
+showTab('dashboard');
+
+function labLog(msg) {
+  const el = document.getElementById('labLog');
+  el.textContent += "\n> " + msg;
+  el.scrollTop = el.scrollHeight;
+}
+
+async function runLabScan() {
+  const btn = document.getElementById('labRunBtn');
+  btn.disabled = true;
+  document.getElementById('labLog').textContent = "Starting lab exploit run...";
+  document.getElementById('labResultsPanel').style.display = 'none';
+  document.querySelectorAll('#labTab .error-box').forEach(e => e.remove());
+
+  const payload = {
+    target_url: document.getElementById('target_url').value,
+    app_type: document.getElementById('app_type').value,
+    confirmed_training_target: document.getElementById('confirmed_training_target').checked,
+  };
+
+  labLog("Attempting SQLi login bypass (classic payloads)...");
+  labLog("Probing for IDOR on basket/object endpoints...");
+  toast("Lab exploit run started", "ok");
+
+  try {
+    const resp = await fetch('/lab_scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      labLog("BLOCKED: " + data.message);
+      const err = document.createElement('div');
+      err.className = 'error-box';
+      err.textContent = data.message;
+      document.getElementById('labLog').after(err);
+      toast(data.message, "high");
+      btn.disabled = false;
+      return;
+    }
+
+    labLog("Lab run complete. " + data.findings.length + " findings.");
+    document.getElementById('labResultsPanel').style.display = 'block';
+    const body = document.getElementById('labResultsBody');
+    body.innerHTML = '';
+    data.findings.forEach(f => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><span class="sev sev-${f.severity}">${f.severity}</span></td>
+        <td><strong>${f.title}</strong><br><span style="color:#8a9a94;font-size:12px;">${f.detail || ''}</span></td>
+        <td class="fix">${f.fix || ''}</td>
+      `;
+      body.appendChild(tr);
+    });
+
+    const highCount = data.counts.high || 0;
+    if (highCount > 0) {
+      toast(highCount + " exploit(s) succeeded", "high");
+      speak(`Lab run complete. ${highCount} exploit${highCount > 1 ? 's' : ''} succeeded against the training app.`);
+    } else {
+      toast("Lab run complete, exploits blocked", "ok");
+      speak("Lab run complete. The attempted exploits were blocked.");
+    }
+  } catch (e) {
+    labLog("Request failed: " + e);
+    toast("Request failed: " + e, "high");
+  }
+  btn.disabled = false;
+}
+
+function isLocal(url) {
+  try { return LOCAL_HOSTS.includes(new URL(url).hostname); } catch { return false; }
+}
+
+function updateAuthVisibility() {
+  const fe = document.getElementById('frontend_url').value;
+  const api = document.getElementById('api_url').value;
+  document.getElementById('authRow').classList.toggle('visible', !(isLocal(fe) && isLocal(api)));
+}
+document.getElementById('frontend_url').addEventListener('input', updateAuthVisibility);
+document.getElementById('api_url').addEventListener('input', updateAuthVisibility);
+updateAuthVisibility();
+
+function toggleVoice() {
+  voiceOn = !voiceOn;
+  document.getElementById('voiceEnabled').checked = voiceOn;
+  document.getElementById('voiceToggleBtn').classList.toggle('active', voiceOn);
+}
+document.getElementById('voiceEnabled').addEventListener('change', e => voiceOn = e.target.checked);
+document.getElementById('voiceToggleBtn').classList.add('active');
+
+function speak(text) {
+  if (!voiceOn || !('speechSynthesis' in window)) return;
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 1.05;
+  utter.pitch = 1.0;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utter);
+}
+
+function toast(message, severity = "ok") {
+  if (!document.getElementById('toastEnabled').checked) return;
+  const container = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = 'toast ' + severity;
+  el.textContent = message;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 5000);
+}
+
+function log(msg) {
+  const el = document.getElementById('log');
+  el.textContent += "\n> " + msg;
+  el.scrollTop = el.scrollHeight;
+}
+
+async function runScan() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  document.getElementById('log').textContent = "Starting scan...";
+  document.getElementById('resultsPanel').style.display = 'none';
+  document.getElementById('statsRow').style.display = 'none';
+  document.querySelectorAll('.error-box,.warn-box').forEach(e => e.remove());
+
+  const payload = {
+    frontend_url: document.getElementById('frontend_url').value,
+    api_url: document.getElementById('api_url').value,
+    authorized: document.getElementById('authorized').checked,
+    llm_provider: document.getElementById('llm_provider').value,
+    llm_api_key: document.getElementById('llm_api_key').value,
+    dotnet_source_path: document.getElementById('dotnet_source_path').value,
+    frontend_source_path: document.getElementById('frontend_source_path').value,
+  };
+
+  log("Checking security headers...");
+  log("Probing login endpoint for injection symptoms (safe canaries only)...");
+  log("Testing rate limiting with dummy credentials...");
+  log("Checking protected routes, cookies, CORS...");
+  toast("Scan started", "ok");
+
+  try {
+    const resp = await fetch('/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      log("ERROR: " + data.message);
+      const err = document.createElement('div');
+      err.className = 'error-box';
+      err.textContent = data.message;
+      document.getElementById('log').after(err);
+      toast(data.message, "high");
+      speak("Scan blocked. " + data.message);
+      btn.disabled = false;
+      return;
+    }
+
+    log("Scan complete. " + data.findings.length + " findings.");
+    renderResults(data);
+
+    const highCount = data.counts.high || 0;
+    const mediumCount = data.counts.medium || 0;
+    if (highCount > 0) {
+      toast(highCount + " high-severity issue(s) found", "high");
+      speak(`Scan complete. ${highCount} high severity issue${highCount > 1 ? 's' : ''} found. Review the report.`);
+    } else if (mediumCount > 0) {
+      toast(mediumCount + " medium-severity issue(s) found", "medium");
+      speak(`Scan complete. No critical issues, but ${mediumCount} medium severity findings to review.`);
+    } else {
+      toast("Scan complete, no major issues", "ok");
+      speak("Scan complete. No significant issues found.");
+    }
+  } catch (e) {
+    log("Request failed: " + e);
+    toast("Request failed: " + e, "high");
+  }
+  btn.disabled = false;
+}
+
+function renderChecklist(checklist) {
+  const panel = document.getElementById('checklistPanel');
+  const body = document.getElementById('checklistBody');
+  if (!checklist || !checklist.length) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  body.innerHTML = '';
+  const badgeMap = {
+    clean: ['badge-clean', 'COVERED'],
+    issues_found: ['badge-issues', 'NEEDS WORK'],
+    not_checked: ['badge-notchecked', 'NOT CHECKED'],
+  };
+  checklist.forEach(c => {
+    const [cls, label] = badgeMap[c.status] || badgeMap.not_checked;
+    const row = document.createElement('div');
+    row.className = 'checklist-item';
+    row.innerHTML = `<span>${c.item}</span><span class="checklist-badge ${cls}">${label}${c.issue_count ? ' (' + c.issue_count + ')' : ''}</span>`;
+    body.appendChild(row);
+  });
+}
+
+function renderResults(data) {
+  document.getElementById('resultsPanel').style.display = 'block';
+  document.getElementById('statsRow').style.display = 'grid';
+  document.getElementById('summaryBox').textContent = data.summary;
+  renderChecklist(data.checklist);
+
+  const c = data.counts || {};
+  document.getElementById('statHigh').textContent = c.high || 0;
+  document.getElementById('statMedium').textContent = c.medium || 0;
+  document.getElementById('statLow').textContent = c.low || 0;
+  document.getElementById('statInfo').textContent = c.info || 0;
+  document.getElementById('statOk').textContent = c.ok || 0;
+
+  const aiErrBox = document.getElementById('aiErrorBox');
+  aiErrBox.innerHTML = '';
+  if (data.ai_error) {
+    const w = document.createElement('div');
+    w.className = 'warn-box';
+    w.textContent = "AI summary unavailable, showing rule-based summary instead: " + data.ai_error;
+    aiErrBox.appendChild(w);
+  }
+
+  const body = document.getElementById('resultsBody');
+  body.innerHTML = '';
+  data.findings.forEach(f => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="sev sev-${f.severity}">${f.severity}</span></td>
+      <td><strong>${f.title}</strong><br><span style="color:#8a9a94;font-size:12px;">${f.detail || ''}</span></td>
+      <td class="fix">${f.fix || ''}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+document.querySelectorAll('.panel').forEach(panel => {
+  panel.addEventListener('mousemove', e => {
+    const r = panel.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - 0.5;
+    const y = (e.clientY - r.top) / r.height - 0.5;
+    panel.style.transform = `perspective(900px) rotateY(${x * 3}deg) rotateX(${-y * 3}deg) translateZ(2px)`;
+  });
+  panel.addEventListener('mouseleave', () => { panel.style.transform = 'none'; });
+});
+</script>
+
+</body>
+</html>
